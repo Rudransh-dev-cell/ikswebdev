@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ancient Indian Warfare: IKS Research Dashboard</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts: Cinzel for Headings, Lora for Body -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+
+    <!-- Vis-Network for Knowledge Graph -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <!-- Custom Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        parchment: {
+                            DEFAULT: '#f1e4c3',
+                            dark: '#e8d8b7',
+                            light: '#f9f1de'
+                        },
+                        ink: {
+                            DEFAULT: '#2c241b',
+                            light: '#4a3d2e',
+                            faded: '#7a6a58'
+                        },
+                        crimson: {
+                            DEFAULT: '#8b0000',
+                            dark: '#5c0000'
+                        },
+                        gold: {
+                            DEFAULT: '#b8860b',
+                            tarnished: '#966d09'
+                        }
+                    },
+                    fontFamily: {
+                        heading: ['Cinzel', 'serif'],
+                        body: ['Lora', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Base Parchment Aesthetic */
+        body {
+            background-color: #f1e4c3;
+            /* SVG Noise for Parchment texture */
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.06'/%3E%3C/svg%3E");
+            color: #2c241b;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #e8d8b7; }
+        ::-webkit-scrollbar-thumb { background: #4a3d2e; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #2c241b; }
+
+        /* Ornate Borders */
+        .ornate-border {
+            position: relative;
+            border: 2px solid #966d09; /* Tarnished gold */
+            background-color: rgba(249, 241, 222, 0.75); /* Parchment light with transparency */
+            box-shadow: 4px 4px 15px rgba(44, 36, 27, 0.1);
+        }
+        
+        .ornate-border::before, .ornate-border::after {
+            content: '';
+            position: absolute;
+            width: calc(100% - 12px);
+            height: calc(100% - 12px);
+            top: 6px;
+            left: 6px;
+            border: 1px solid #7a6a58;
+            pointer-events: none;
+        }
+
+        /* Decorative Corners */
+        .corner-accent {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b0000'%3E%3Cpath d='M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z'/%3E%3C/svg%3E");
+            background-size: cover;
+            z-index: 10;
+        }
+        .corner-tl { top: -10px; left: -10px; }
+        .corner-tr { top: -10px; right: -10px; }
+        .corner-bl { bottom: -10px; left: -10px; }
+        .corner-br { bottom: -10px; right: -10px; }
+
+        /* Navigation Tabs */
+        .nav-tab {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .nav-tab.active {
+            color: #8b0000;
+            border-bottom: 3px solid #8b0000;
+            font-weight: 700;
+        }
+        .nav-tab::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            bottom: -3px;
+            left: 0;
+            background-color: #b8860b;
+            transform: scaleX(0);
+            transform-origin: bottom right;
+            transition: transform 0.3s ease-out;
+        }
+        .nav-tab:hover::after {
+            transform: scaleX(1);
+            transform-origin: bottom left;
+        }
+
+        /* Armory - Sidebar Links */
+        .weapon-link {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            padding-left: 1.5rem;
+        }
+        .weapon-link::before {
+            content: '♦';
+            position: absolute;
+            left: 0;
+            color: transparent;
+            transition: color 0.2s;
+        }
+        .weapon-link.active {
+            color: #8b0000;
+            font-weight: bold;
+        }
+        .weapon-link.active::before { color: #b8860b; }
+        .weapon-link:hover:not(.active) { color: #4a3d2e; }
+
+        /* Toggle Switch (Lore vs Ledger) */
+        .toggle-checkbox:checked { right: 0; border-color: #8b0000; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #e8d8b7; }
+        .toggle-checkbox:checked + .toggle-label .toggle-slider { transform: translateX(100%); background-color: #8b0000; }
+        
+        .toggle-slider {
+            transition: all 0.3s ease;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        /* Ink Dot Stat Bars */
+        .ink-dot {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+            margin-right: 4px;
+            border: 2px solid #2c241b;
+            transform: rotate(45deg); /* Diamond shape */
+            transition: background-color 0.4s ease;
+            position: relative;
+        }
+        .ink-dot.filled {
+            background-color: #2c241b;
+        }
+        .ink-dot.filled::after {
+            content:'';
+            position: absolute;
+            inset: 2px;
+            background-color: #8b0000;
+            /* Uneven mask for ink stamp look */
+            mask-image: radial-gradient(circle, black 80%, transparent 100%);
+            -webkit-mask-image: radial-gradient(circle, black 80%, transparent 100%);
+        }
+
+        /* Vyuha Canvas Container */
+        #vyuha-canvas-container {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.1'/%3E%3C/svg%3E");
+            background-color: #e8d8b7;
+            box-shadow: inset 0 0 30px rgba(44, 36, 27, 0.15);
+            position: relative;
+        }
+        /* Canvas Compass Rose */
+        .compass-rose {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            opacity: 0.3;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50 0 L60 40 L100 50 L60 60 L50 100 L40 60 L0 50 L40 40 Z' fill='%232c241b'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='%232c241b' stroke-width='2'/%3E%3C/svg%3E");
+        }
+
+        /* Vis Network Container */
+        #knowledge-graph {
+            height: 600px;
+            width: 100%;
+            background-color: rgba(232, 216, 183, 0.4);
+            border: 1px solid #7a6a58;
+        }
+        
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Module visibility */
+        .module-section { display: none; }
+        .module-section.active { display: block; animation: fadeIn 0.4s ease-out forwards; }
+        
+    </style>
+</head>
+<body class="font-body min-h-screen flex flex-col items-center py-8 px-4 sm:px-8">
+
+    <!-- Header Section -->
+    <header class="w-full max-w-7xl text-center mb-8 relative">
+        <div class="absolute top-1/2 left-0 w-1/4 h-[1px] bg-ink opacity-30 -translate-y-1/2 hidden md:block"></div>
+        <div class="absolute top-1/2 right-0 w-1/4 h-[1px] bg-ink opacity-30 -translate-y-1/2 hidden md:block"></div>
+        
+        <h2 class="font-heading text-xl text-crimson mb-2 tracking-[0.3em] uppercase">Tala Patra Database</h2>
+        <h1 class="font-heading text-4xl md:text-5xl font-bold text-ink tracking-widest uppercase">
+            Ancient Indian Knowledge System
+        </h1>
+        <p class="font-heading text-ink-faded mt-3 tracking-widest text-sm uppercase">Warfare Doctrines & Technology</p>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="w-full max-w-4xl flex justify-center space-x-6 md:space-x-12 mb-10 border-b border-ink/20 pb-2">
+        <button onclick="switchTab('vyuha')" id="tab-vyuha" class="nav-tab active font-heading uppercase text-lg text-ink-light pb-2 px-2">Vyuha Simulator</button>
+        <button onclick="switchTab('armory')" id="tab-armory" class="nav-tab font-heading uppercase text-lg text-ink-light pb-2 px-2">Royal Armory</button>
+        <button onclick="switchTab('doctrines')" id="tab-doctrines" class="nav-tab font-heading uppercase text-lg text-ink-light pb-2 px-2">Doctrines Graph</button>
+    </nav>
+
+    <main class="w-full max-w-7xl flex-grow flex flex-col">
+
+        <!-- ============================================== -->
+        <!-- MODULE 1: VYUHA SIMULATOR (Tactical Map)       -->
+        <!-- ============================================== -->
+        <section id="module-vyuha" class="module-section active w-full">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                
+                <!-- Controls Sidebar -->
+                <div class="lg:col-span-1 flex flex-col space-y-6 ornate-border p-6 h-fit">
+                    <div class="corner-accent corner-tl"></div><div class="corner-accent corner-tr"></div>
+                    <div class="corner-accent corner-bl"></div><div class="corner-accent corner-br"></div>
+                    
+                    <h3 class="font-heading text-xl text-crimson border-b border-ink/20 pb-2 uppercase font-bold">Tactical Deployment</h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block font-heading text-sm text-ink-faded uppercase tracking-wider mb-2">Select Formation (Vyuha)</label>
+                            <select id="vyuha-select" class="w-full bg-parchment-dark border border-gold text-ink font-heading p-2 focus:outline-none focus:border-crimson">
+                                <option value="chakra">Chakravyuha (Labyrinth)</option>
+                                <option value="makara">Makaravyuha (Crocodile)</option>
+                                <option value="garuda">Garudavyuha (Eagle)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block font-heading text-sm text-ink-faded uppercase tracking-wider mb-2">Army Divisions (Chaturanga)</label>
+                            <ul class="text-sm font-body space-y-2 text-ink-light">
+                                <li class="flex items-center"><span class="w-3 h-3 rounded-full bg-ink inline-block mr-2"></span> Padati (Infantry)</li>
+                                <li class="flex items-center"><span class="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[10px] border-b-crimson inline-block mr-2"></span> Ashva (Cavalry)</li>
+                                <li class="flex items-center"><span class="w-3 h-3 bg-gold inline-block mr-2"></span> Ratha (Chariots)</li>
+                                <li class="flex items-center"><span class="w-4 h-4 rounded-full bg-[#4a3d2e] inline-block mr-2"></span> Gaja (Elephants)</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="pt-4 border-t border-ink/20">
+                            <button id="btn-deploy" class="w-full bg-ink text-parchment font-heading uppercase tracking-widest py-3 border-2 border-gold-tarnished hover:bg-crimson hover:text-gold transition-colors duration-300">
+                                Deploy Troops
+                            </button>
+                            <button id="btn-reset" class="w-full mt-2 bg-transparent text-ink-faded font-heading uppercase tracking-wider py-2 border border-ink/30 hover:bg-ink/10 transition-colors">
+                                Reset Field
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canvas Area -->
+                <div class="lg:col-span-3 ornate-border p-2">
+                    <div id="vyuha-canvas-container" class="w-full aspect-square md:aspect-video relative overflow-hidden border border-ink/20">
+                        <div class="compass-rose"></div>
+                        <!-- HTML5 Canvas -->
+                        <canvas id="battlefield" class="w-full h-full block"></canvas>
+                        
+                        <!-- Overlay text -->
+                        <div class="absolute bottom-4 right-4 font-heading text-ink-faded opacity-50 text-sm tracking-widest uppercase">Field of Kurukshetra</div>
+                    </div>
+                    <p id="vyuha-desc" class="mt-4 text-ink-light font-body italic text-center px-4">
+                        The Chakravyuha is a complex, rotating labyrinth formation consisting of multiple defensive layers. Once entered, the enemy is continually flanked.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- MODULE 2: ROYAL ARMORY (Lore vs Ledger)        -->
+        <!-- ============================================== -->
+        <section id="module-armory" class="module-section w-full">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 ornate-border p-8 relative">
+                <div class="corner-accent corner-tl"></div><div class="corner-accent corner-tr"></div>
+                <div class="corner-accent corner-bl"></div><div class="corner-accent corner-br"></div>
+
+                <!-- Sidebar Selection -->
+                <aside class="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-ink/20 pb-6 lg:pb-0 lg:pr-6">
+                    <h3 class="font-heading text-xl text-ink uppercase tracking-widest mb-6 border-b border-ink/10 pb-2">Arsenal</h3>
+                    <nav id="armory-nav" class="flex flex-col space-y-4 font-heading text-lg tracking-wide">
+                        <a class="weapon-link active" onclick="loadWeapon('dhanush')">Dhanush (Bow)</a>
+                        <a class="weapon-link" onclick="loadWeapon('khanda')">Khanda (Sword)</a>
+                        <a class="weapon-link" onclick="loadWeapon('urumi')">Urumi (Whip-Sword)</a>
+                        <a class="weapon-link" onclick="loadWeapon('gada')">Gada (Mace)</a>
+                    </nav>
+                </aside>
+
+                <!-- Main Inspection View -->
+                <div class="lg:col-span-9 pl-0 lg:pl-6 flex flex-col h-full fade-in" id="armory-content">
+                    
+                    <!-- Header & Toggle -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <div>
+                            <h2 id="wpn-name" class="font-heading text-4xl text-crimson font-bold uppercase tracking-widest">DHANUSH</h2>
+                            <p id="wpn-class" class="font-heading text-ink-faded uppercase tracking-wider text-sm mt-1">Composite War Bow</p>
+                        </div>
+                        
+                        <!-- Toggle Switch -->
+                        <div class="flex items-center space-x-3 bg-parchment-dark p-2 border border-gold-tarnished rounded-md shadow-inner">
+                            <span class="font-heading text-xs uppercase tracking-widest text-ink font-bold" id="label-ledger">Ledger (History)</span>
+                            
+                            <div class="relative w-14 h-6 rounded-full bg-ink/20 cursor-pointer" onclick="toggleLore()">
+                                <div id="toggle-knob" class="absolute top-1 left-1 w-4 h-4 bg-gold rounded-full transition-transform duration-300 transform translate-x-0 border border-ink/50 shadow-md"></div>
+                            </div>
+                            
+                            <span class="font-heading text-xs uppercase tracking-widest text-ink-faded" id="label-lore">Lore (Mythos)</span>
+                        </div>
+                    </div>
+
+                    <!-- Content Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow">
+                        <!-- Description Column -->
+                        <div>
+                            <h4 class="font-heading text-gold-tarnished text-sm font-bold uppercase tracking-widest mb-3 border-b border-ink/20 pb-1 inline-block">Chronicle</h4>
+                            <p id="wpn-desc" class="text-ink text-justify leading-relaxed mt-2 text-lg first-letter:font-heading first-letter:text-5xl first-letter:text-crimson first-letter:mr-2 first-letter:float-left">
+                                The Indian composite bow was massive, equaling the warrior's height. Constructed by binding bamboo, horn, and sinew, its extreme draw weight allowed it to pierce armor and elephant hides.
+                            </p>
+                            
+                            <div class="mt-6 p-4 border border-ink/20 bg-parchment-light/50 relative">
+                                <div class="absolute -top-3 left-4 bg-parchment px-2 font-heading text-xs text-crimson uppercase">Details</div>
+                                <div class="grid grid-cols-2 gap-4 text-sm mt-2">
+                                    <div>
+                                        <strong class="font-heading text-ink uppercase text-xs">Origin:</strong>
+                                        <p id="wpn-origin" class="italic text-ink-faded mt-1">Vedic Period / Mauryan Empire</p>
+                                    </div>
+                                    <div>
+                                        <strong class="font-heading text-ink uppercase text-xs">Material / Energy:</strong>
+                                        <p id="wpn-material" class="italic text-ink-faded mt-1">Bamboo, Horn, Animal Sinew</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stats Column -->
+                        <div class="flex flex-col justify-center">
+                            <h4 class="font-heading text-gold-tarnished text-sm font-bold uppercase tracking-widest mb-4 border-b border-ink/20 pb-1 text-center">Tactical Attributes</h4>
+                            
+                            <div class="space-y-5">
+                                <!-- Stat: Lethality -->
+                                <div class="flex justify-between items-center">
+                                    <span class="font-heading text-xs uppercase tracking-widest w-32 text-ink">Lethality</span>
+                                    <div id="stat-lethality" class="flex"></div>
+                                </div>
+                                <!-- Stat: Range -->
+                                <div class="flex justify-between items-center">
+                                    <span class="font-heading text-xs uppercase tracking-widest w-32 text-ink">Range</span>
+                                    <div id="stat-range" class="flex"></div>
+                                </div>
+                                <!-- Stat: Weight -->
+                                <div class="flex justify-between items-center">
+                                    <span class="font-heading text-xs uppercase tracking-widest w-32 text-ink">Weight/Draw</span>
+                                    <div id="stat-weight" class="flex"></div>
+                                </div>
+                                <!-- Stat: Armor Piercing -->
+                                <div class="flex justify-between items-center">
+                                    <span class="font-heading text-xs uppercase tracking-widest w-32 text-ink">Armor Piercing</span>
+                                    <div id="stat-ap" class="flex"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- MODULE 3: DOCTRINES KNOWLEDGE GRAPH            -->
+        <!-- ============================================== -->
+        <section id="module-doctrines" class="module-section w-full">
+            <div class="ornate-border p-4 relative">
+                <div class="corner-accent corner-tl"></div><div class="corner-accent corner-tr"></div>
+                <div class="corner-accent corner-bl"></div><div class="corner-accent corner-br"></div>
+                
+                <div class="absolute top-6 left-8 z-10 bg-parchment-light/80 p-3 border border-ink/20 shadow-md">
+                    <h3 class="font-heading text-crimson uppercase tracking-widest text-sm font-bold">Kautilya's Arthashastra</h3>
+                    <p class="text-xs text-ink-light font-body italic mt-1 max-w-[250px]">
+                        Scroll to zoom. Drag nodes to explore the geopolitical and military framework of ancient India.
+                    </p>
+                </div>
+
+                <div id="knowledge-graph" class="w-full rounded-sm"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full text-center mt-12 mb-6 font-heading text-xs text-ink-faded tracking-widest uppercase">
+        <p>Digitized Artifact • IKS Research Initiative</p>
+        <p class="mt-2 text-gold-tarnished">§</p>
+    </footer>
+
+    <!-- ============================================== -->
+    <!-- JAVASCRIPT LOGIC                               -->
+    <!-- ============================================== -->
+    <script>
+        // --- 1. TAB NAVIGATION ---
+        let networkInitialized = false;
+
+        function switchTab(tabId) {
+            // Update buttons
+            document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+
+            // Update sections
+            document.querySelectorAll('.module-section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById('module-' + tabId).classList.add('active');
+
+            // Handle specific initializations
+            if (tabId === 'vyuha') {
+                resizeCanvas();
+                resetField();
+            } else if (tabId === 'doctrines' && !networkInitialized) {
+                initKnowledgeGraph();
+                networkInitialized = true;
+            }
+        }
+
+        // --- 2. VYUHA SIMULATOR (CANVAS) ---
+        const canvas = document.getElementById('battlefield');
+        const ctx = canvas.getContext('2d');
+        let units = [];
+        let animationId;
+        let isDeploying = false;
+        
+        // Formations Descriptions
+        const vyuhaDescs = {
+            'chakra': 'The Chakravyuha is a complex, rotating labyrinth formation consisting of multiple defensive layers. Once entered, the enemy is continually flanked.',
+            'makara': 'The Makaravyuha (Crocodile) utilizes a heavily armored, piercing front line (the snout), a wide body to absorb shock, and a trailing tail to protect flanks and supplies.',
+            'garuda': 'The Garudavyuha (Eagle) features a dense central block (the body) with two sweeping wings designed to encircle and crush the enemy flanks simultaneously.'
+        };
+
+        document.getElementById('vyuha-select').addEventListener('change', function(e) {
+            document.getElementById('vyuha-desc').innerText = vyuhaDescs[e.target.value];
+            resetField();
+        });
+        document.getElementById('btn-deploy').addEventListener('click', deployTroops);
+        document.getElementById('btn-reset').addEventListener('click', resetField);
+
+        function resizeCanvas() {
+            const container = document.getElementById('vyuha-canvas-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', () => { if(document.getElementById('module-vyuha').classList.contains('active')) resizeCanvas(); });
+
+        class Unit {
+            constructor(type, x, y) {
+                this.type = type; // 0: Infantry, 1: Cavalry, 2: Chariot, 3: Elephant
+                this.startX = x;
+                this.startY = y;
+                this.x = x;
+                this.y = y;
+                this.targetX = x;
+                this.targetY = y;
+                this.speed = 0.02 + Math.random() * 0.015; // lerp factor
+            }
+
+            update() {
+                if (isDeploying) {
+                    this.x += (this.targetX - this.x) * this.speed;
+                    this.y += (this.targetY - this.y) * this.speed;
+                } else {
+                    this.x += (this.startX - this.x) * this.speed;
+                    this.y += (this.startY - this.y) * this.speed;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                if (this.type === 0) { // Infantry: small ink circle
+                    ctx.fillStyle = '#2c241b';
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.type === 1) { // Cavalry: crimson triangle
+                    ctx.fillStyle = '#8b0000';
+                    ctx.moveTo(this.x, this.y - 4);
+                    ctx.lineTo(this.x - 4, this.y + 4);
+                    ctx.lineTo(this.x + 4, this.y + 4);
+                    ctx.fill();
+                } else if (this.type === 2) { // Chariot: gold square
+                    ctx.fillStyle = '#b8860b';
+                    ctx.rect(this.x - 4, this.y - 4, 8, 8);
+                    ctx.fill();
+                } else if (this.type === 3) { // Elephant: large dark brown circle
+                    ctx.fillStyle = '#4a3d2e';
+                    ctx.arc(this.x, this.y, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.closePath();
+            }
+        }
+
+        function createUnits() {
+            units = [];
+            const w = canvas.width;
+            const h = canvas.height;
+            const startY = h - 40;
+            const numUnits = 180;
+            
+            for (let i = 0; i < numUnits; i++) {
+                // Determine type based on ratio (mostly infantry, some cavalry/chariots, few elephants)
+                let type = 0;
+                if (i % 8 === 0) type = 3; // Elephant
+                else if (i % 6 === 0) type = 2; // Chariot
+                else if (i % 4 === 0) type = 1; // Cavalry
+                
+                // Starting line at bottom
+                let x = (w / numUnits) * i + (Math.random() * 10 - 5);
+                let y = startY + (Math.random() * 20 - 10);
+                
+                units.push(new Unit(type, x, y));
+            }
+        }
+
+        function calculateTargets() {
+            const formation = document.getElementById('vyuha-select').value;
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const s = Math.min(canvas.width, canvas.height) / 2;
+
+            units.forEach((u, i) => {
+                let tx = cx, ty = cy;
+                const progress = i / units.length;
+
+                if (formation === 'chakra') {
+                    // Spiral / Concentric Rings
+                    const angle = i * 0.4;
+                    const radius = 20 + (progress * (s * 0.7));
+                    tx = cx + Math.cos(angle) * radius;
+                    ty = cy + Math.sin(angle) * radius;
+                } 
+                else if (formation === 'makara') {
+                    // Crocodile: Head (triangle top), Body (wide rectangle), Tail (thin line bottom)
+                    if (progress < 0.2) { // Head
+                        tx = cx + (Math.random() - 0.5) * (progress * 150);
+                        ty = cy - s*0.6 + progress * s;
+                    } else if (progress < 0.7) { // Body
+                        tx = cx + (Math.random() - 0.5) * (s * 0.8);
+                        ty = cy - s*0.4 + (progress * s * 0.8);
+                    } else { // Tail
+                        tx = cx + (Math.random() - 0.5) * (s * 0.2 * (1-progress));
+                        ty = cy + (progress * s * 0.5);
+                    }
+                } 
+                else if (formation === 'garuda') {
+                    // Eagle: Center block (body), sweeping wings (V shape)
+                    if (progress < 0.3) { // Body
+                        tx = cx + (Math.random() - 0.5) * 60;
+                        ty = cy - 20 + (Math.random() * 100);
+                    } else { // Wings
+                        const wingProg = (progress - 0.3) / 0.7; // 0 to 1
+                        const side = (i % 2 === 0) ? 1 : -1;
+                        tx = cx + side * (40 + wingProg * (s * 0.8));
+                        ty = cy + (wingProg * s * 0.4) - Math.sin(wingProg * Math.PI) * 100;
+                    }
+                }
+                
+                // Add slight organic offset
+                u.targetX = tx + (Math.random() * 10 - 5);
+                u.targetY = ty + (Math.random() * 10 - 5);
+            });
+        }
+
+        function deployTroops() {
+            if (!units.length) createUnits();
+            calculateTargets();
+            isDeploying = true;
+            if(!animationId) animate();
+        }
+
+        function resetField() {
+            isDeploying = false;
+            if(!units.length) createUnits();
+            if(!animationId) animate();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let moving = false;
+            units.forEach(u => {
+                u.update();
+                u.draw();
+                // Check if still moving
+                let dist = isDeploying ? Math.abs(u.targetX - u.x) + Math.abs(u.targetY - u.y) : Math.abs(u.startX - u.x) + Math.abs(u.startY - u.y);
+                if (dist > 1) moving = true;
+            });
+            
+            if (moving) {
+                animationId = requestAnimationFrame(animate);
+            } else {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        }
+
+
+        // --- 3. ROYAL ARMORY (LORE VS LEDGER) ---
+        const armoryData = {
+            'dhanush': {
+                name: 'DHANUSH', class: 'Composite War Bow',
+                ledger: {
+                    desc: 'The Indian composite bow was massive, sometimes equaling the warrior\'s height. Constructed by meticulously binding bamboo, horn, and animal sinew, its extreme draw weight allowed arrows to pierce heavy armor and elephant hides.',
+                    origin: 'Vedic Period / Mauryan Empire', material: 'Bamboo, Horn, Animal Sinew, Silk',
+                    stats: { lethality: 8, range: 10, weight: 6, ap: 7 }
+                },
+                lore: {
+                    desc: 'Divine bows (Dhanush) like the Gandiva or Pinaka were bestowed by the Gods. They required spiritual mantras to summon celestial arrows (Astras) capable of seeking targets or unleashing elemental fury upon the battlefield.',
+                    origin: 'Given by Lord Varuna / Shiva', material: 'Celestial Energy, Unbreakable Heavenly Wood',
+                    stats: { lethality: 10, range: 10, weight: 10, ap: 10 }
+                }
+            },
+            'khanda': {
+                name: 'KHANDA', class: 'Double-Edged Broadsword',
+                ledger: {
+                    desc: 'A distinctly Indian sword known for its blunt tip and extremely wide, double-edged blade. Forged from Wootz crucible steel, it was designed for devastating hacking and cleaving motions to dismantle heavy infantry.',
+                    origin: 'Gupta Empire / Rajput Era', material: 'Wootz Crucible Steel, Brass Hilt',
+                    stats: { lethality: 9, range: 2, weight: 8, ap: 8 }
+                },
+                lore: {
+                    desc: 'The Khanda represents Kshatriya honor and the goddess Kali. It is said that legendary swords were quenched in the blood of demons, granting them the ability to sever evil and ignorance with a single stroke.',
+                    origin: 'Forged in Divine Fire', material: 'Meteoritic Iron, Blessed Steel',
+                    stats: { lethality: 10, range: 3, weight: 9, ap: 9 }
+                }
+            },
+            'urumi': {
+                name: 'URUMI', class: 'Flexible Whip-Sword',
+                ledger: {
+                    desc: 'Perhaps the most dangerous melee weapon ever created. It consists of multiple flexible spring-steel blades attached to a single hilt. Wielded in continuous, sweeping arcs, it creates a defensive bubble of lethal steel.',
+                    origin: 'Sangam Period (Kerala)', material: 'Flexible Spring Steel, Wooden Grip',
+                    stats: { lethality: 7, range: 4, weight: 3, ap: 4 }
+                },
+                lore: {
+                    desc: 'Masters of Kalaripayattu view the Urumi as an extension of the Kundalini energy (serpent power). It flows like a river of steel, acting with a mind of its own to deflect incoming projectiles and strike multiple foes.',
+                    origin: 'Ancient Agastya Tradition', material: 'Serpent Scales, Mystical Silver',
+                    stats: { lethality: 8, range: 5, weight: 2, ap: 5 }
+                }
+            },
+            'gada': {
+                name: 'GADA', class: 'Heavy War Mace',
+                ledger: {
+                    desc: 'A heavy spherical head mounted on a shaft. Used by warriors trained in Malla-yuddha (wrestling), it was the ultimate counter to heavily armored troops, delivering kinetic energy that shattered bone beneath armor.',
+                    origin: 'Pre-Vedic Antiquity', material: 'Dense Wood, Bronze, or Solid Iron',
+                    stats: { lethality: 9, range: 2, weight: 10, ap: 10 }
+                },
+                lore: {
+                    desc: 'The weapon of Hanuman and Bhima. Divine Gadas like the Kaumodaki (wielded by Vishnu) emit the roar of thunder when swung, possessing the weight of mountains to crush armies of Asuras.',
+                    origin: 'Forged by Vishwakarma', material: 'Essence of Earth and Thunder',
+                    stats: { lethality: 10, range: 2, weight: 10, ap: 10 }
+                }
+            }
+        };
+
+        let currentWeapon = 'dhanush';
+        let isLoreMode = false;
+
+        function toggleLore() {
+            isLoreMode = !isLoreMode;
+            
+            // Animate toggle UI
+            const knob = document.getElementById('toggle-knob');
+            const lblLedger = document.getElementById('label-ledger');
+            const lblLore = document.getElementById('label-lore');
+            
+            if(isLoreMode) {
+                knob.style.transform = 'translateX(24px)';
+                knob.style.backgroundColor = '#8b0000'; // Crimson for lore
+                lblLore.classList.replace('text-ink-faded', 'text-crimson');
+                lblLore.classList.add('font-bold');
+                lblLedger.classList.replace('text-ink', 'text-ink-faded');
+                lblLedger.classList.remove('font-bold');
+            } else {
+                knob.style.transform = 'translateX(0)';
+                knob.style.backgroundColor = '#b8860b'; // Gold for ledger
+                lblLedger.classList.replace('text-ink-faded', 'text-ink');
+                lblLedger.classList.add('font-bold');
+                lblLore.classList.replace('text-crimson', 'text-ink-faded');
+                lblLore.classList.remove('font-bold');
+            }
+            
+            updateArmoryView();
+        }
+
+        function loadWeapon(key) {
+            currentWeapon = key;
+            
+            // Update sidebar active state
+            document.querySelectorAll('.weapon-link').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Trigger animation
+            const content = document.getElementById('armory-content');
+            content.classList.remove('fade-in');
+            void content.offsetWidth; // reflow
+            content.classList.add('fade-in');
+
+            updateArmoryView();
+        }
+
+        function renderStatDots(containerId, value) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                const dot = document.createElement('div');
+                dot.className = `ink-dot ${i < value ? 'filled' : ''}`;
+                container.appendChild(dot);
+            }
+        }
+
+        function updateArmoryView() {
+            const data = armoryData[currentWeapon];
+            const modeData = isLoreMode ? data.lore : data.ledger;
+
+            document.getElementById('wpn-name').innerText = data.name;
+            document.getElementById('wpn-class').innerText = data.class;
+            
+            document.getElementById('wpn-desc').innerText = modeData.desc;
+            document.getElementById('wpn-origin').innerText = modeData.origin;
+            document.getElementById('wpn-material').innerText = modeData.material;
+
+            renderStatDots('stat-lethality', modeData.stats.lethality);
+            renderStatDots('stat-range', modeData.stats.range);
+            renderStatDots('stat-weight', modeData.stats.weight);
+            renderStatDots('stat-ap', modeData.stats.ap);
+        }
+
+        // --- 4. DOCTRINES KNOWLEDGE GRAPH ---
+        function initKnowledgeGraph() {
+            const container = document.getElementById('knowledge-graph');
+            
+            // Nodes defining Kautilya's framework
+            const nodes = new vis.DataSet([
+                { id: 1, label: 'Arthashastra\n(Statecraft)', shape: 'circle', font: {size: 24, face: 'Cinzel'}, size: 40, color: {background: '#8b0000', border: '#b8860b'} },
+                
+                // Level 1
+                { id: 2, label: 'Sadgunya\n(6 Policies)', shape: 'circle', font: {color: '#2c241b', face: 'Cinzel'}, color: {background: '#f9f1de', border: '#7a6a58'} },
+                { id: 3, label: 'Types of War', shape: 'circle', font: {color: '#2c241b', face: 'Cinzel'}, color: {background: '#f9f1de', border: '#7a6a58'} },
+                { id: 4, label: 'Chaturanga\n(4 Divisions)', shape: 'circle', font: {color: '#2c241b', face: 'Cinzel'}, color: {background: '#f9f1de', border: '#7a6a58'} },
+                
+                // Level 2 - Sadgunya
+                { id: 10, label: 'Sandhi\n(Peace)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 11, label: 'Vigraha\n(Hostility)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 12, label: 'Asana\n(Neutrality)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 13, label: 'Yana\n(Marching)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 14, label: 'Samshraya\n(Alliance)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 15, label: 'Dvaidhibhava\n(Dual Policy)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+
+                // Level 2 - War Types
+                { id: 20, label: 'Prakasayuddha\n(Open War)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 21, label: 'Kutayuddha\n(Concealed War)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 22, label: 'Mantrayuddha\n(Diplomatic War)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 23, label: 'Gudayuddha\n(Covert/Spy War)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+
+                // Level 2 - Chaturanga
+                { id: 30, label: 'Gaja\n(Elephants)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 31, label: 'Ratha\n(Chariots)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 32, label: 'Ashva\n(Cavalry)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} },
+                { id: 33, label: 'Padati\n(Infantry)', shape: 'box', color: {background: '#e8d8b7', border: '#966d09'}, font: {face: 'Lora'} }
+            ]);
+
+            const edges = new vis.DataSet([
+                { from: 1, to: 2, color: {color: '#7a6a58'} },
+                { from: 1, to: 3, color: {color: '#7a6a58'} },
+                { from: 1, to: 4, color: {color: '#7a6a58'} },
+                
+                { from: 2, to: 10, color: {color: '#b8860b'} }, { from: 2, to: 11, color: {color: '#b8860b'} },
+                { from: 2, to: 12, color: {color: '#b8860b'} }, { from: 2, to: 13, color: {color: '#b8860b'} },
+                { from: 2, to: 14, color: {color: '#b8860b'} }, { from: 2, to: 15, color: {color: '#b8860b'} },
+                
+                { from: 3, to: 20, color: {color: '#8b0000'} }, { from: 3, to: 21, color: {color: '#8b0000'} },
+                { from: 3, to: 22, color: {color: '#8b0000'} }, { from: 3, to: 23, color: {color: '#8b0000'} },
+                
+                { from: 4, to: 30, color: {color: '#4a3d2e'} }, { from: 4, to: 31, color: {color: '#4a3d2e'} },
+                { from: 4, to: 32, color: {color: '#4a3d2e'} }, { from: 4, to: 33, color: {color: '#4a3d2e'} }
+            ]);
+
+            const data = { nodes: nodes, edges: edges };
+            const options = {
+                physics: {
+                    solver: 'forceAtlas2Based',
+                    forceAtlas2Based: {
+                        gravitationalConstant: -100,
+                        centralGravity: 0.01,
+                        springLength: 100,
+                        springConstant: 0.08
+                    },
+                },
+                nodes: {
+                    borderWidth: 2,
+                    borderWidthSelected: 4,
+                    shadow: { enabled: true, color: 'rgba(44, 36, 27, 0.4)', size: 5, x: 2, y: 2 }
+                },
+                edges: {
+                    width: 2,
+                    smooth: { type: 'continuous' }
+                }
+            };
+            
+            new vis.Network(container, data, options);
+        }
+
+        // Initialize defaults on load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set canvas size
+            resizeCanvas();
+            // Load first weapon view
+            updateArmoryView();
+        });
+
+    </script>
+</body>
+</html>
